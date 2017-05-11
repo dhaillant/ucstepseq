@@ -92,11 +92,13 @@ void decrease_dac_output(void)
 */
 
 
-void update_dac_output(int setpoint)
+//void update_dac_output(int setpoint)
+void update_dac_output(uint16_t dac_value)
 {
-	uint16_t dac_data;
-	dac_data = setpoint * DAC_SEMITONE;
-	writeMCP492x(dac_data, dac_config);
+	//uint16_t dac_data;
+	//dac_data = setpoint * DAC_SEMITONE;
+	//writeMCP492x(dac_data, dac_config);
+	writeMCP492x(dac_value, dac_config);
 
 	#ifdef USE_UART
 		printf("dac_data = %d\n", dac_data);
@@ -263,6 +265,25 @@ void display_gates(uint8_t gates[])
 }
 
 
+
+// outputs
+
+void update_gate_output(uint8_t gate)
+{
+	if (gate == 0)
+	{
+		SET_GATE_low;
+	}
+	else
+	{
+		SET_GATE_high;
+	}
+}
+
+void update_cv_output(uint8_t semitone)
+{
+	update_dac_output(semitone * DAC_SEMITONE);
+}
 
 
 
