@@ -208,3 +208,5 @@ void output_gate(uint8_t gate);
 void manage_inputs(void);
 void manage_user_inputs(void);
 //void manage_display(void);
+
+void update_step_n_gate_leds(void);

@@ -23,39 +23,6 @@
 
 
 
-/*
-void update_pattern_leds(uint8_t patterns)
-{
-	uint16_t leds = patterns + current_step;
-	//update_spi_leds(
-}
-* */
-
-void update_step_n_gate_leds(void)
-{
-	update_spi_leds(step_n_gate_leds);
-}
-
-
-
-
-
-
-//void update_dac_output(int setpoint)
-void update_dac_output(uint16_t dac_value)
-{
-	//uint16_t dac_data;
-	//dac_data = setpoint * DAC_SEMITONE;
-	//writeMCP492x(dac_data, dac_config);
-	writeMCP492x(dac_value, dac_config);
-
-	#ifdef USE_UART
-		printf("dac_data = %d\n", dac_data);
-	#endif
-}
-
-
-
 
 // ************************ Rotary Encoder *****************************
 void rotation_CW(void);
@@ -79,9 +46,6 @@ ISR(INT1_vect )
 	if (result == DIR_CW) 	rotation_CW();
 	if (result == DIR_CCW) 	rotation_CCW();
 }
-
-
-
 
 void rotation_CW(void)
 {
@@ -185,80 +149,51 @@ void display_gates(uint8_t gates[])
 	update_step_n_gate_leds();
 }
 
-
-
-// outputs
-
 /*
-void update_gate_output(uint8_t gate)
+void update_pattern_leds(uint8_t patterns)
 {
-	if (gate == 0)
-	{
-		SET_GATE_low;
-	}
-	else
-	{
-		SET_GATE_high;
-	}
+	uint16_t leds = patterns + current_step;
+	//update_spi_leds(
 }
-*/
+* */
 
-/*
-void update_cv_output(uint8_t semitone)
+void update_step_n_gate_leds(void)
 {
-	update_dac_output(semitone * DAC_SEMITONE);
+	update_spi_leds(step_n_gate_leds);
 }
-*/
 
-
-uint8_t go_step(uint8_t step)
+void blink_leds(void)
 {
-	// set current step and update outputs then display accordingly
-
-	if (step > LAST_STEP)
+	// demo sequence
+	for (uint8_t i = 0; i < 5; i++)
 	{
-		step = FIRST_STEP;
+		//update_spi_leds(0b0101010101010101);
+		update_spi_leds(0xAAAA);
+		_delay_ms(200);
+		update_spi_leds(0x5555);
+		_delay_ms(200);
 	}
-	current_step = step;
-	
-	// update outputs
-	update_gate_output(gate_sequence[current_step]);
-	update_cv_output(semitones_sequence[current_step]);
-
-	// update display
-	display_step(current_step);
-	//update_step_n_gate_leds();
-	
-	return current_step;
 }
 
 
-uint8_t forward_next_step(void)
+
+
+
+
+// ************************  outputs  **********************************
+
+//void update_dac_output(int setpoint)
+void update_dac_output(uint16_t dac_value)
 {
-	// increase current_step pointer
-	// update gate output
-	// update cv output
-	// display current step
+	//uint16_t dac_data;
+	//dac_data = setpoint * DAC_SEMITONE;
+	//writeMCP492x(dac_data, dac_config);
+	writeMCP492x(dac_value, dac_config);
 
-	/*
-	current_step += 1;
-	if (current_step > LAST_STEP)
-	{
-		current_step = FIRST_STEP;
-	}
-	* */
-
-	return go_step(current_step + 1);
-
-	//update_gate_output(gate_sequence[current_step]);
-	//update_cv_output(semitones_sequence[current_step]);
-
-	//display_step(current_step);
-
-	//return current_step;
+	#ifdef USE_UART
+		printf("dac_data = %d\n", dac_data);
+	#endif
 }
-
-
 
 void output_gate(uint8_t step)
 {
@@ -286,55 +221,81 @@ void output_cv(uint8_t semitone)
 }
 
 
-ISR(PCINT2_vect)
+void update_gate_output(uint8_t gate)
 {
-	// Interrupt service routine. Every single PCINT23..16 (PD7..PD0) change
-	// cf. PCMSK2 setup for the actual checked bit changes
+}
 
-	/*
-	 * we're watching :
-	 * STEP_PIN
-	 * RPUSH_PIN
-	 * RESET_PIN
-	 * 
-	 */
+void update_cv_output(uint8_t semitone)
+{
+}
+
 
 /*
-	if (RESET_PIN_low) {
-		//go_step(0);
-		//update_dac_output(0);
-		
-		_delay_ms(5);
-	} else {
-	*/
-//		if ((STEP_PIN_high) && (STEP_PIN_previous_state == LOW)) {
-		if (STEP_PIN_high) {
-			// we get a gate input going HIGH
-			//STEP_PIN_previous_state = HIGH;
-			//forward_next_step();
-			//display_number(current_step);
-			//display_number(0x03);
-
-			// advance to next step
-			// output new values
-			
-			//update_dac_output(forward_next_step());
-			//_delay_ms(100);
-		}
-
-//		if ((STEP_PIN_low) && (STEP_PIN_previous_state == HIGH)) {
-		if (STEP_PIN_low) {
-			// we get a gate input going LOW
-			//STEP_PIN_previous_state = LOW;
-			//display_number(0x04);
-			
-			// nothing to do, (gate output should go LOW if in Trig mode, stay unchanged in case of Gate mode)
-			// dac output stay unchanged
-			//_delay_ms(100);
-		}
-	//}
-
+void update_gate_output(uint8_t gate)
+{
+	if (gate == 0)
+	{
+		SET_GATE_low;
+	}
+	else
+	{
+		SET_GATE_high;
+	}
 }
+*/
+
+/*
+void update_cv_output(uint8_t semitone)
+{
+	update_dac_output(semitone * DAC_SEMITONE);
+}
+*/
+
+
+
+
+// ****************************** sequencer ****************************
+
+uint8_t go_step(uint8_t step)
+{
+	// set current step and update outputs then display accordingly
+
+	if (step > LAST_STEP)
+	{
+		step = FIRST_STEP;
+	}
+	current_step = step;
+	
+	// update outputs
+	update_gate_output(gate_sequence[current_step]);
+	update_cv_output(semitones_sequence[current_step]);
+
+	// update display
+	display_step(current_step);
+	
+	return current_step;
+}
+
+
+uint8_t forward_next_step(void)
+{
+	// increase current_step pointer
+	// update gate output
+	// update cv output
+	// display current step
+
+	return go_step(current_step + 1);
+}
+
+void stop_sequencer(void)
+{
+	go_step(0);
+}
+
+
+
+
+
 
 //http://happyrobotlabs.com/posts/project/artemis-synthesizer-2-interfacing-with-the-mcp4921-spi-dac/
 //https://github.com/cwoodall/mcp492x-spidac-interface
@@ -376,9 +337,9 @@ void setup(void)
 	//PORTD |= (1 << RESET_PIN);
 
 	// setup Pin Change interrupts
-	PCICR |= (1 << PCIE2);          // Enable PCINT2 interrupt
-	PCMSK2 |= (1 << PCINT22);		// watch PD6 pin ("step" clock signal)
-	PCMSK2 |= (1 << PCINT23);		// watch PD7 pin ("reset"      signal)
+	//PCICR |= (1 << PCIE2);          // Enable PCINT2 interrupt
+	//PCMSK2 |= (1 << PCINT22);		// watch PD6 pin ("step" clock signal)
+	//PCMSK2 |= (1 << PCINT23);		// watch PD7 pin ("reset"      signal)
 
 
 /*
@@ -396,16 +357,8 @@ void setup(void)
 
 	display_number(0x12);
 
-	// demo sequence
-	for (uint8_t i = 0; i < 5; i++)
-	{
-		//update_spi_leds(0b0101010101010101);
-		update_spi_leds(0xAAAA);
-		_delay_ms(200);
-		update_spi_leds(0x5555);
-		_delay_ms(200);
-	}
-	
+	blink_leds();
+
 	// init gates
 /*	for (uint8_t i = 0; i < MAX_STEPS; i++)
 	{
@@ -420,11 +373,17 @@ void setup(void)
 	// switch off leds
 	//update_spi_leds(0);
 	//update_spi_leds(0);
-	go_step(0);
+
+	stop_sequencer();
 
 	/* enable interrupts */
 	sei();
 }
+
+
+
+
+
 
 #ifdef TEST_MODE
 void test_gates(void)
@@ -525,6 +484,11 @@ void decrease_rot_increments(void)
 
 #endif
 
+
+
+
+
+
 // detect gate clock
 // go to next step
 // update outputs
@@ -537,8 +501,6 @@ void decrease_rot_increments(void)
 
 // detect end timer edition
 // set edition mode off
-
-
 
 
 int main(void)
@@ -561,12 +523,8 @@ int main(void)
 		// manage step/reset inputs
 		manage_inputs();
 
-
-
 		// manage user inputs
 		manage_user_inputs();
-		
-		
 		
 		// update, if necessary, display
 		//manage_display();
@@ -622,17 +580,5 @@ void manage_display(void)
 }
 */
 
-void stop_sequencer(void)
-{
-	go_step(0);
-}
-
-void update_gate_output(uint8_t gate)
-{
-}
-
-void update_cv_output(uint8_t semitone)
-{
-}
 
 
