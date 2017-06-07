@@ -144,3 +144,8 @@ unsigned char rotary_process() {
 	// Return emit bits, ie the generated event.
 	return rotary_state & 0x30;
 }
+
+
+// other documentation available:
+// http://www.leniwiec.org/en/2014/04/28/rotary-shaft-encoder-how-to-connect-it-and-handle-it-with-avr-atmega8-16-32-168-328/
+// schéma : http://www.leniwiec.org/wp-content/uploads/2014/04/schemat.png

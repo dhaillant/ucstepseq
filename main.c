@@ -23,27 +23,6 @@
 
 
 
-
-
-
-uint8_t forward_next_step(void);
-void output_gate(uint8_t gate);
-//void output_half_tone(uint8_t half_tone);
-
-// 2 bytes for steps and gates leds
-// Row 1 : Step		SSSS SSSS xxxx xxxx
-// Row 2 : Gates	xxxx xxxx GGGG GGGG
-// set the step_n_gate_leds bits to 1 for led on, 0 for led off, then call update_step_n_gate_leds
-uint16_t step_n_gate_leds = 0;
-
-
-
-
-
-
-
-
-
 /*
 void update_pattern_leds(uint8_t patterns)
 {
@@ -59,37 +38,7 @@ void update_step_n_gate_leds(void)
 
 
 
-// http://www.leniwiec.org/en/2014/04/28/rotary-shaft-encoder-how-to-connect-it-and-handle-it-with-avr-atmega8-16-32-168-328/
-// schéma : http://www.leniwiec.org/wp-content/uploads/2014/04/schemat.png
 
-/*
-void increase_dac_output(void)
-{
-	dac_data += 1;
-	if (dac_data > (MAX_DAC_DATA))
-		dac_data = MAX_DAC_DATA;
-
-	writeMCP492x(dac_data, dac_config);
-	//_delay_ms(5000);
-	//PORTD ^= _BV(PD4);
-	display_number(0xaa8);
-
-	printf("up   dac_data = %d\n", dac_data);
-}
-
-void decrease_dac_output(void)
-{
-	dac_data -= 1;
-	if (dac_data < (MIN_DAC_DATA))
-		dac_data = MIN_DAC_DATA;
-
-	writeMCP492x(dac_data, dac_config);
-	//_delay_ms(5000);
-	display_number(0x8aa);
-
-	printf("down dac_data = %d\n", dac_data);
-}
-*/
 
 
 //void update_dac_output(int setpoint)
@@ -132,32 +81,6 @@ ISR(INT1_vect )
 }
 
 
-// for test
-/*void increase_rot_increments(void)
-{
-	rot_increments += 1;
-	if (rot_increments > (MAX_ROTARY_INC))
-		rot_increments = MAX_ROTARY_INC;
-
-	#ifdef USE_UART
-	printf("up   rot_increments = %d\n", rot_increments);
-	#endif
-
-	update_dac_output(rot_increments);
-}
-
-void decrease_rot_increments(void)
-{
-	rot_increments -= 1;
-	if (rot_increments < (MIN_ROTARY_INC))
-		rot_increments = MIN_ROTARY_INC;
-
-	#ifdef USE_UART
-	printf("down rot_increments = %d\n", rot_increments);
-	#endif
-
-	update_dac_output(rot_increments);
-}*/
 
 
 void rotation_CW(void)
@@ -210,9 +133,7 @@ void rotation_CCW(void)
 #define RESET_PIN_low  bit_is_clear(PIND, RESET_PIN)
 #define RESET_PIN_high bit_is_set(PIND, RESET_PIN)
 
-#define LOW 0
-#define HIGH 1
-uint8_t STEP_PIN_previous_state = LOW;
+uint8_t step_pin_previous_state = LOW;
 
 
 #define SET_GATE_high   PORTD &= ~(1 << GATE_PIN)
@@ -257,7 +178,7 @@ void display_gates(uint8_t gates[])
 
 	for (uint8_t i = 0; i < MAX_STEPS; i++)
 	{
-		step_n_gate_leds = step_n_gate_leds | (step_gates[i] << (i + 8));
+		step_n_gate_leds = step_n_gate_leds | (gate_sequence[i] << (i + 8));
 	}
 	//update_spi_leds(leds);
 
@@ -268,6 +189,7 @@ void display_gates(uint8_t gates[])
 
 // outputs
 
+/*
 void update_gate_output(uint8_t gate)
 {
 	if (gate == 0)
@@ -279,52 +201,68 @@ void update_gate_output(uint8_t gate)
 		SET_GATE_high;
 	}
 }
+*/
 
+/*
 void update_cv_output(uint8_t semitone)
 {
 	update_dac_output(semitone * DAC_SEMITONE);
 }
-
+*/
 
 
 uint8_t go_step(uint8_t step)
 {
 	// set current step and update outputs then display accordingly
 
-
+	if (step > LAST_STEP)
+	{
+		step = FIRST_STEP;
+	}
 	current_step = step;
-
+	
 	// update outputs
-	update_gate_output(step_gates[current_step]);
-	update_cv_output(step_semitones[current_step]);
+	update_gate_output(gate_sequence[current_step]);
+	update_cv_output(semitones_sequence[current_step]);
 
 	// update display
 	display_step(current_step);
-	update_step_n_gate_leds();
+	//update_step_n_gate_leds();
 	
-	//update_step_leds(current_step);
-	//update_spi_leds(1 << current_step);
-
 	return current_step;
 }
 
 
 uint8_t forward_next_step(void)
 {
+	// increase current_step pointer
+	// update gate output
+	// update cv output
+	// display current step
+
+	/*
 	current_step += 1;
-	if (current_step > MAX_STEPS)
-		current_step = 0;
+	if (current_step > LAST_STEP)
+	{
+		current_step = FIRST_STEP;
+	}
+	* */
 
-	display_step(current_step);
+	return go_step(current_step + 1);
 
-	return current_step;
+	//update_gate_output(gate_sequence[current_step]);
+	//update_cv_output(semitones_sequence[current_step]);
+
+	//display_step(current_step);
+
+	//return current_step;
 }
 
 
 
 void output_gate(uint8_t step)
 {
-		if (step_gates[step] == HIGH)
+		if (gate_sequence[step] == HIGH)
 		{
 			SET_GATE_high;
 			if (trig_out == TRUE)
@@ -341,9 +279,10 @@ void output_gate(uint8_t step)
 }
 
 
-void output_cv(uint8_t step)
+void output_cv(uint8_t semitone)
 {
-	update_dac_output(step_semitones[step]);
+	update_dac_output(semitone * DAC_SEMITONE);
+	//update_dac_output(step_semitones[step]);
 }
 
 
@@ -528,6 +467,61 @@ void test_blink_gate_led(void)
 	}
 }
 
+/*
+void increase_dac_output(void)
+{
+	dac_data += 1;
+	if (dac_data > (MAX_DAC_DATA))
+		dac_data = MAX_DAC_DATA;
+
+	writeMCP492x(dac_data, dac_config);
+	//_delay_ms(5000);
+	//PORTD ^= _BV(PD4);
+	display_number(0xaa8);
+
+	printf("up   dac_data = %d\n", dac_data);
+}
+
+void decrease_dac_output(void)
+{
+	dac_data -= 1;
+	if (dac_data < (MIN_DAC_DATA))
+		dac_data = MIN_DAC_DATA;
+
+	writeMCP492x(dac_data, dac_config);
+	//_delay_ms(5000);
+	display_number(0x8aa);
+
+	printf("down dac_data = %d\n", dac_data);
+}
+*/
+
+// for test
+/*void increase_rot_increments(void)
+{
+	rot_increments += 1;
+	if (rot_increments > (MAX_ROTARY_INC))
+		rot_increments = MAX_ROTARY_INC;
+
+	#ifdef USE_UART
+	printf("up   rot_increments = %d\n", rot_increments);
+	#endif
+
+	update_dac_output(rot_increments);
+}
+
+void decrease_rot_increments(void)
+{
+	rot_increments -= 1;
+	if (rot_increments < (MIN_ROTARY_INC))
+		rot_increments = MIN_ROTARY_INC;
+
+	#ifdef USE_UART
+	printf("down rot_increments = %d\n", rot_increments);
+	#endif
+
+	update_dac_output(rot_increments);
+}*/
 
 #endif
 
@@ -545,21 +539,10 @@ void test_blink_gate_led(void)
 // set edition mode off
 
 
-// unused
-void detect_clock_input(void)
-{
-	// loop until clock input is low (avoid false trigger)
-	while (STEP_PIN_high) {}
-
-	// loop until clock input goes up
-	while (STEP_PIN_low) {}
-
-}
 
 
 int main(void)
 {
-	//_delay_ms(10);
 	setup();
 
 	#ifdef TEST_MODE
@@ -575,39 +558,81 @@ int main(void)
 
 	while(1)
 	{
-		// manage steps
-
-		// detect positive level on RESET input
-		if (RESET_PIN_high)
-		{
-			// go to step 0 and update outputs then display accordingly
-			//PORTD &= ~(1 << GATE_PIN);
-			go_step(0);
-			output_gate(current_step);
-		}
-		else
-		{
-			//PORTD |= (1 << GATE_PIN);
-		}
+		// manage step/reset inputs
+		manage_inputs();
 
 
-		//display_number(STEP_PIN_previous_state);
-		//if (STEP_PIN_previous_state == HIGH)
-		if ((STEP_PIN_high) && (STEP_PIN_previous_state == LOW))
-		{
-			STEP_PIN_previous_state = HIGH;
-			forward_next_step();
-			output_gate(current_step);
-			output_cv(current_step);
-			//_delay_ms(50);
-		}
-		if ((STEP_PIN_low) && (STEP_PIN_previous_state == HIGH))
-		{
-			STEP_PIN_previous_state = LOW;
-			//_delay_ms(50);
-		}
 
 		// manage user inputs
+		manage_user_inputs();
 		
+		
+		
+		// update, if necessary, display
+		//manage_display();
 	}
 }
+
+void manage_inputs(void)
+{
+	// detect positive *level* on RESET input
+	if (RESET_PIN_high)
+	{
+		// go to step 0 and update outputs, then display accordingly
+		stop_sequencer();
+	}
+
+
+	// detect rising gate *edges*
+	if ((STEP_PIN_high) && (step_pin_previous_state == LOW))
+	{
+		forward_next_step();
+
+		// keep it for next iteration: only detect rising edges
+		step_pin_previous_state = HIGH;
+	}
+
+	// and ignore falling gate *edges*
+	if ((STEP_PIN_low) && (step_pin_previous_state == HIGH))
+	{
+		step_pin_previous_state = LOW;
+	}
+}
+
+
+void manage_user_inputs(void)
+{
+	
+}
+
+
+/*
+ * should NOT use this solution: use instead a simple call to display update functions on demand
+void manage_display(void)
+{
+	if (leds_need_update_flag == TRUE)
+	{
+		update_step_n_gate_leds();
+	}
+	
+	if display_flag
+	{
+		update_display());
+	}
+}
+*/
+
+void stop_sequencer(void)
+{
+	go_step(0);
+}
+
+void update_gate_output(uint8_t gate)
+{
+}
+
+void update_cv_output(uint8_t semitone)
+{
+}
+
+

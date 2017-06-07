@@ -10,6 +10,21 @@
 #define TRUE  1
 #define FALSE 0
 
+#define LOW 0
+#define HIGH 1
+
+
+unsigned char char2bcd(unsigned char hex)
+{
+   unsigned char MSD = 0;
+
+   while (hex >= 10)
+   {
+      hex -= 10;	// hex becomes 1s (LSD)
+      MSD += 0x10;	// add 1 to 10s (MSD)
+   }
+   return MSD + hex;	// pack BCD into char
+}
 
 
 
@@ -47,13 +62,17 @@ int rot_increments = 0;
 #include "HRL_SPI.h"
 
 
-
-
 // 2 seven segment displays
 #include "spi_display.h"
 
 // 2 LEDs strips
 #include "spi_leds.h"
+
+// 2 bytes for steps and gates leds
+// Row 1 : Step		SSSS SSSS xxxx xxxx
+// Row 2 : Gates	xxxx xxxx GGGG GGGG
+// set the step_n_gate_leds bits to 1 for led on, 0 for led off, then call update_step_n_gate_leds
+uint16_t step_n_gate_leds = 0;
 
 
 
@@ -124,17 +143,39 @@ int dac_config = 0x50;
 // **************************** SEQUENCER ******************************
 
 // max number of steps per pattern (0..7) = 8 steps
-#define MAX_STEPS 8
+
+// steps:
+// 0 1 2 3 4 5 6 7 8
+//   F             L
+// (F = First, L = Last)
+// 0 is NO step
+// 1 is the First step
+
+#define NUMBER_STEPS 8
+#define FIRST_STEP 1
+#define MAX_STEPS (NUMBER_STEPS + FIRST_STEP)
 #define LAST_STEP (MAX_STEPS - 1)
+
+
+// Patterns are not yet implemented
 // max number of patterns (0..3) = 4 patterns
 //#define MAX_PATTERN 3
 
-// notes (0 = lowest note, 1 = 1st higher semitone)
+// notes (0 = lowest note, 1 = 1st semitone)
+// uint8_t is 8 bits unsigned, so 0 to 254 notes available
 //uint8_t half_tones[MAX_PATTERN][MAX_STEP];
-uint8_t step_semitones[MAX_STEPS];
+uint8_t semitones_sequence[MAX_STEPS];
 
 // gated steps, binary value : 0 = no gate, 1 = gate
-uint8_t step_gates[MAX_STEPS];
+uint8_t gate_sequence[MAX_STEPS];
+
+// Note for future need: if memory gets tight, one can join gates and semitones together.
+// it's possible to store gate as the MSB
+// GRNN NNNN
+// With bit G the Gate, 0 for no Gate and 1 for Gate signal
+// N for number of semitones for the step (60 semitones for 5 octaves)
+// R is for Reserved use
+
 
 // current active step
 uint8_t current_step = 0;
@@ -144,29 +185,26 @@ uint8_t current_pattern = 0;
 
 
 
-
-
-
-
-
 // is GATE output trigger or gate style?
 uint8_t trig_out = FALSE;
 
 
+// flag to say if led Shift Registers need to be updated
+// this flag is checked every main loop iteration
+// note, this is heavily dependant/related to the hardware choice in version 1.1
+// a better and more generic solution could be implemented.
+// furthermore, this is TIME consuming
+// need to be replaced by a single call when truly needed!!!!!
+uint8_t leds_need_update_flag = FALSE;
 
 
-unsigned char char2bcd(unsigned char hex)
-{
-   unsigned char MSD = 0;
-
-   while (hex >= 10)
-   {
-      hex -= 10;	// hex becomes 1s (LSD)
-      MSD += 0x10;	// add 1 to 10s (MSD)
-   }
-   return MSD + hex;	// pack BCD into char
-}
-
-
+void stop_sequencer(void);
 void update_gate_output(uint8_t gate);
 void update_cv_output(uint8_t semitone);
+uint8_t forward_next_step(void);
+void output_gate(uint8_t gate);
+//void output_half_tone(uint8_t half_tone);
+
+void manage_inputs(void);
+void manage_user_inputs(void);
+//void manage_display(void);
