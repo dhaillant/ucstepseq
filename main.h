@@ -53,6 +53,8 @@ unsigned char char2bcd(unsigned char hex)
 
 int rot_increments = 0;
 
+void rotation_CW(void);
+void rotation_CCW(void);
 
 
 
@@ -138,6 +140,7 @@ int dac_config = 0x50;
 
 
 
+#include "timer.h"
 
 
 // **************************** SEQUENCER ******************************
@@ -154,7 +157,9 @@ int dac_config = 0x50;
 #define NUMBER_STEPS 8
 #define FIRST_STEP 1
 #define MAX_STEPS (NUMBER_STEPS + FIRST_STEP)
+// MAX_STEPS = 9
 #define LAST_STEP (MAX_STEPS - 1)
+// LAST_STEP = 8
 
 
 // Patterns are not yet implemented
@@ -199,8 +204,8 @@ uint8_t leds_need_update_flag = FALSE;
 
 
 void stop_sequencer(void);
-void update_gate_output(uint8_t gate);
-void update_cv_output(uint8_t semitone);
+//void update_gate_output(uint8_t gate);
+//void update_cv_output(uint8_t semitone);
 uint8_t forward_next_step(void);
 void output_gate(uint8_t gate);
 //void output_half_tone(uint8_t half_tone);

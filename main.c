@@ -21,13 +21,10 @@
 
 #include "main.h"
 
-
+#define TEST_MODE
 
 
 // ************************ Rotary Encoder *****************************
-void rotation_CW(void);
-void rotation_CCW(void);
-
 
 //INT0 interrupt 
 ISR(INT0_vect )
@@ -63,6 +60,7 @@ void rotation_CW(void)
 	 */
 	//update_dac_output(forward_next_step());
 	//increase_rot_increments();
+	init_timer();
 }
 
 void rotation_CCW(void)
@@ -81,6 +79,7 @@ void rotation_CCW(void)
 	 */
 
 	//decrease_rot_increments();
+	init_timer();
 }
 
 
@@ -89,19 +88,10 @@ void rotation_CCW(void)
 
 
 
-#define STEP_PIN_low   bit_is_clear(PIND, STEP_PIN)
-#define STEP_PIN_high  bit_is_set(PIND, STEP_PIN)
-// pour test, simulation d'une impulsion STEP sur appui du bouton MODE/RESET :
-//#define STEP_PIN_low   bit_is_clear(PIND, RESET_PIN)
-//#define STEP_PIN_high  bit_is_set(PIND, RESET_PIN)
-#define RESET_PIN_low  bit_is_clear(PIND, RESET_PIN)
-#define RESET_PIN_high bit_is_set(PIND, RESET_PIN)
 
 uint8_t step_pin_previous_state = LOW;
 
 
-#define SET_GATE_high   PORTD &= ~(1 << GATE_PIN)
-#define SET_GATE_low    PORTD |= (1 << GATE_PIN)
 
 
 
@@ -110,6 +100,7 @@ uint8_t step_pin_previous_state = LOW;
 
 // ************************** DISPLAY **********************************
 #define SWITCH_OFF_STEP_LEDS 	step_n_gate_leds = step_n_gate_leds & 0xFF00
+#define SWITCH_OFF_GATE_LEDS 	step_n_gate_leds = step_n_gate_leds & 0x00FF
 
 void display_step(uint8_t step)
 {
@@ -126,12 +117,12 @@ void display_step(uint8_t step)
 	{
 		// switch on one led
 		step_n_gate_leds = step_n_gate_leds | (1 << (step - 1));
-
-		update_step_n_gate_leds();
 	}
+	update_step_n_gate_leds();
 }
 
-void display_gates(uint8_t gates[])
+//void display_gates(uint8_t gates[])
+void display_gates(void)
 {
 	// Row 1 : Step		SSSS SSSS xxxx xxxx
 	// Row 2 : Gates	xxxx xxxx GGGG GGGG
@@ -139,12 +130,19 @@ void display_gates(uint8_t gates[])
 	// steps are BYTE n°... (LSB)
 	
 	//step_n_gate_leds
+	
+	// switch off gate leds
+	SWITCH_OFF_GATE_LEDS;
 
-	for (uint8_t i = 0; i < MAX_STEPS; i++)
+	uint8_t gate_leds = 0;
+
+	for (uint8_t i = FIRST_STEP; i < MAX_STEPS; i++)
 	{
-		step_n_gate_leds = step_n_gate_leds | (gate_sequence[i] << (i + 8));
+		//step_n_gate_leds = step_n_gate_leds | (gate_sequence[i] << (i + 8));
+		gate_leds = gate_leds | (gate_sequence[i] << (i - 1));
 	}
-	//update_spi_leds(leds);
+
+	step_n_gate_leds |= (gate_leds << 8);
 
 	update_step_n_gate_leds();
 }
@@ -177,25 +175,27 @@ void blink_leds(void)
 
 
 
+// *************************  INPUTS  **********************************
 
+#define STEP_PIN_low	bit_is_clear(PIND, STEP_PIN)
+#define STEP_PIN_high	bit_is_set(PIND, STEP_PIN)
+// pour test, simulation d'une impulsion STEP sur appui du bouton MODE/RESET :
+//#define STEP_PIN_low   bit_is_clear(PIND, RESET_PIN)
+//#define STEP_PIN_high  bit_is_set(PIND, RESET_PIN)
+#define RESET_PIN_low	bit_is_clear(PIND, RESET_PIN)
+#define RESET_PIN_high	bit_is_set(PIND, RESET_PIN)
+
+#define RPUSH_PIN_pushed	bit_is_clear(PIND,	RPUSH_PIN)
+#define RPUSH_PIN_released	bit_is_set(PIND,	RPUSH_PIN)
 
 
 // ************************  outputs  **********************************
 
-//void update_dac_output(int setpoint)
-void update_dac_output(uint16_t dac_value)
-{
-	//uint16_t dac_data;
-	//dac_data = setpoint * DAC_SEMITONE;
-	//writeMCP492x(dac_data, dac_config);
-	writeMCP492x(dac_value, dac_config);
+#define SET_GATE_high   PORTD &= ~(1 << GATE_PIN)
+#define SET_GATE_low    PORTD |= (1 << GATE_PIN)
 
-	#ifdef USE_UART
-		printf("dac_data = %d\n", dac_data);
-	#endif
-}
-
-void output_gate(uint8_t step)
+/*
+ * void output_gate(uint8_t step)
 {
 		if (gate_sequence[step] == HIGH)
 		{
@@ -212,7 +212,38 @@ void output_gate(uint8_t step)
 			//SET_GATE_low;
 		}
 }
+* */
 
+void output_gate(uint8_t gate)
+{
+		if (gate == HIGH)
+		{
+			SET_GATE_high;
+			if (trig_out == TRUE)
+			{
+				_delay_us(10);
+				SET_GATE_low;
+			}
+		}
+		else
+		{
+			SET_GATE_low;
+			//SET_GATE_low;
+		}
+}
+
+
+void update_dac_output(uint16_t dac_value)
+{
+	//uint16_t dac_data;
+	//dac_data = setpoint * DAC_SEMITONE;
+	//writeMCP492x(dac_data, dac_config);
+	writeMCP492x(dac_value, dac_config);
+
+	#ifdef USE_UART
+		printf("dac_data = %d\n", dac_data);
+	#endif
+}
 
 void output_cv(uint8_t semitone)
 {
@@ -221,13 +252,13 @@ void output_cv(uint8_t semitone)
 }
 
 
-void update_gate_output(uint8_t gate)
-{
-}
+//void update_gate_output(uint8_t gate)
+//{
+//}
 
-void update_cv_output(uint8_t semitone)
-{
-}
+//void update_cv_output(uint8_t semitone)
+//{
+//}
 
 
 /*
@@ -267,8 +298,8 @@ uint8_t go_step(uint8_t step)
 	current_step = step;
 	
 	// update outputs
-	update_gate_output(gate_sequence[current_step]);
-	update_cv_output(semitones_sequence[current_step]);
+	output_gate(gate_sequence[current_step]);
+	//output_cv(semitones_sequence[current_step]);
 
 	// update display
 	display_step(current_step);
@@ -336,24 +367,6 @@ void setup(void)
 	//PORTD |= (1 << STEP_PIN);		// use pull up if step is active on ground switch (foot pedal...)
 	//PORTD |= (1 << RESET_PIN);
 
-	// setup Pin Change interrupts
-	//PCICR |= (1 << PCIE2);          // Enable PCINT2 interrupt
-	//PCMSK2 |= (1 << PCINT22);		// watch PD6 pin ("step" clock signal)
-	//PCMSK2 |= (1 << PCINT23);		// watch PD7 pin ("reset"      signal)
-
-
-/*
-	//dac_data = 0x000;
-	dac_data = 12 * DAC_SEMITONE;
-
-	#ifdef USE_UART
-	printf("dac_data = %d\n", dac_data);
-	#endif
-
-	writeMCP492x(dac_data, dac_config);
-//	_delay_ms(5000);
-*/
-	//update_dac_output(12);
 
 	display_number(0x12);
 
@@ -371,8 +384,8 @@ void setup(void)
 	trig_out = TRUE;
 
 	// switch off leds
-	//update_spi_leds(0);
-	//update_spi_leds(0);
+	update_spi_leds(0);
+	update_spi_leds(0);
 
 	stop_sequencer();
 
@@ -386,20 +399,24 @@ void setup(void)
 
 
 #ifdef TEST_MODE
-void test_gates(void)
-{
-	// test pattern :
-	step_gates[0] = 1;
-	step_gates[1] = 0;
-	step_gates[2] = 1;
-	step_gates[3] = 0;
 
-	step_gates[4] = 1;
-	step_gates[5] = 1;
-	step_gates[6] = 0;
-	step_gates[7] = 0;
+void test_gates_sequence(void)
+{
+	// test sequence :
+	gate_sequence[0] = 0;
+
+	gate_sequence[1] = 1;
+	gate_sequence[2] = 0;
+	gate_sequence[3] = 1;
+	gate_sequence[4] = 0;
+
+	gate_sequence[5] = 1;
+	gate_sequence[6] = 0;
+	gate_sequence[7] = 1;
+	gate_sequence[8] = 1;
 }
 
+/*
 void test_cv(void)
 {
 	step_semitones[0] = 100;
@@ -412,17 +429,26 @@ void test_cv(void)
 	step_semitones[6] = 100;
 	step_semitones[7] = 100;
 }
-
+*/
 
 void test_blink_gate_led(void)
 {
 	while(1)
 	{
-			PORTD &= ~(1 << GATE_PIN);
-			_delay_ms(1000);
+		PORTD &= ~(1 << GATE_PIN);
+		_delay_ms(1000);
 
-			PORTD |= (1 << GATE_PIN);
-			_delay_ms(1000);
+		PORTD |= (1 << GATE_PIN);
+		_delay_ms(1000);
+	}
+}
+
+void test_forward_next_step(void)
+{
+	while(1)
+	{
+		forward_next_step();
+		_delay_ms(1000);
 	}
 }
 
@@ -508,23 +534,26 @@ int main(void)
 	setup();
 
 	#ifdef TEST_MODE
-		test_gates();
-		test_cv();
+		//test_forward_next_step();
+		//test_blink_gate_led();
+		test_gates_sequence();
+		//test_cv();
 
-		display_gates(step_gates);
-		output_gate(current_step);
-		output_cv(current_step);
+		//display_gates(step_gates);
+		display_gates();
+		//output_gate(current_step);
+		//output_cv(current_step);
 	#endif
 
 
-
+	// main loop, where everything happens
 	while(1)
 	{
 		// manage step/reset inputs
 		manage_inputs();
 
 		// manage user inputs
-		manage_user_inputs();
+		//manage_user_inputs();
 		
 		// update, if necessary, display
 		//manage_display();
@@ -541,7 +570,7 @@ void manage_inputs(void)
 	}
 
 
-	// detect rising gate *edges*
+	// detect gate's rising *edges*
 	if ((STEP_PIN_high) && (step_pin_previous_state == LOW))
 	{
 		forward_next_step();
@@ -550,7 +579,7 @@ void manage_inputs(void)
 		step_pin_previous_state = HIGH;
 	}
 
-	// and ignore falling gate *edges*
+	// and ignore gate's falling *edges*
 	if ((STEP_PIN_low) && (step_pin_previous_state == HIGH))
 	{
 		step_pin_previous_state = LOW;
@@ -560,6 +589,11 @@ void manage_inputs(void)
 
 void manage_user_inputs(void)
 {
+	// is button pushed ?
+	if (RPUSH_PIN_pushed)
+	{
+		init_timer();
+	}
 	
 }
 

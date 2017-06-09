@@ -17,7 +17,7 @@ MAIN = main.c
 ## If you've split your program into multiple .c / .h files, 
 ## include the additional source (in same directory) here 
 LOCAL_SOURCE = HRL_SPI.c HRL_MCP492x.c uart.c rotary.c spi_display.c \
-               spi_leds.c
+               spi_leds.c timer.c
 
 ## Here you can link to one more directory (and multiple .c files)
 #EXTRA_SOURCE_DIR = /usr/share/arduino/hardware/arduino/cores/arduino/
