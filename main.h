@@ -13,6 +13,9 @@
 #define LOW 0
 #define HIGH 1
 
+#define RELEASED 0
+#define PUSHED 1
+
 
 unsigned char char2bcd(unsigned char hex)
 {
@@ -77,7 +80,21 @@ void rotation_CCW(void);
 uint16_t step_n_gate_leds = 0;
 
 
+// *************************  INPUTS  **********************************
 
+#define STEP_PIN_low	bit_is_clear(PIND, STEP_PIN)
+#define STEP_PIN_high	bit_is_set(PIND, STEP_PIN)
+// pour test, simulation d'une impulsion STEP sur appui du bouton MODE/RESET :
+//#define STEP_PIN_low   bit_is_clear(PIND, RESET_PIN)
+//#define STEP_PIN_high  bit_is_set(PIND, RESET_PIN)
+#define RESET_PIN_low	bit_is_clear(PIND, RESET_PIN)
+#define RESET_PIN_high	bit_is_set(PIND, RESET_PIN)
+
+#define RPUSH_PIN_pushed	bit_is_clear(PIND,	RPUSH_PIN)
+#define RPUSH_PIN_released	bit_is_set(PIND,	RPUSH_PIN)
+
+uint8_t step_pin_previous_state = LOW;
+uint8_t rpush_previous_state = RELEASED;
 
 // **************************** DAC ************************************
 // 12 bits SPI DAC MCP4921
@@ -188,11 +205,14 @@ uint8_t current_step = 0;
 // current active pattern
 uint8_t current_pattern = 0;
 
+uint8_t edited_step = FIRST_STEP;
 
+uint8_t semitone_changed = FALSE;
 
 // is GATE output trigger or gate style?
 uint8_t trig_out = FALSE;
-
+// duration of trigger pulse when in trigger mode (in µs)
+#define TRIGGER_LENGTH 5000
 
 // flag to say if led Shift Registers need to be updated
 // this flag is checked every main loop iteration
@@ -201,6 +221,7 @@ uint8_t trig_out = FALSE;
 // furthermore, this is TIME consuming
 // need to be replaced by a single call when truly needed!!!!!
 uint8_t leds_need_update_flag = FALSE;
+
 
 
 void stop_sequencer(void);
@@ -212,6 +233,10 @@ void output_gate(uint8_t gate);
 
 void manage_inputs(void);
 void manage_user_inputs(void);
-//void manage_display(void);
+void manage_display(void);
 
 void update_step_n_gate_leds(void);
+void display_step(uint8_t step);
+
+void start_edition_mode(void);
+void end_edition_mode(void);

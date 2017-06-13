@@ -53,12 +53,13 @@
  * 0 means segment is ON
  * 1 means segment is OFF
  * 
- * led_digits[0] is character "0"
- * led_digits[9] is character "9"
- * led_digits[10] is character " " ("empty" or "space")
+ * characters[0] is character "0"
+ * characters[9] is character "9"
+ * characters[10] is character " " ("empty" or "space")
+ * characters[11] is character "-" ("dash" or "minus")
  */
 
-const uint8_t led_digits[] = {
+const uint8_t characters[] = {
   //dCDEFABG
   //76543210
   0b10000001,  // 0
@@ -72,11 +73,12 @@ const uint8_t led_digits[] = {
   0b10111001,  // 7
   0b10000000,  // 8
   0b10010000,  // 9
-  0b11111111   // all off
+  0b11111111,  // all off
+  0b11111110   // -
   //dCDEFABG
 };
 
-
+uint8_t decimal_point_position = 0;
 
 
 
@@ -114,11 +116,15 @@ int shift_data(uint8_t data)
 */
 void display_number(uint16_t numberToDisplay)
 {
-	printf("numberToDisplay = %d\n", numberToDisplay);
+	#ifdef USE_UART
+		printf("numberToDisplay = %d\n", numberToDisplay);
+	#endif
 
 	//uint8_t digit = 0;				// 1 digit
 	//uint8_t digits[] = {0, 0, 0};		// 3 digits
 	uint8_t digits[] = {0, 0};		// 2 digits
+	
+	//uint8_t decimal_points = {0, 0};
 
 	// extract digits
 /*	digits[0] = (numberToDisplay >> 8) & 0b00001111;  // MSB
@@ -144,10 +150,45 @@ void display_number(uint16_t numberToDisplay)
 	// shift out the bits from digits:
 	for (uint8_t digit = 0; digit < MAX_DIGIT; digit++)
 	{
-		//shift_data(led_digits[digits[digit]]);
-		sendSPI(led_digits[digits[digit]]);
+		//shift_data(characters[digits[digit]]);
+		//sendSPI(characters[digits[digit]]);
+		uint8_t character = characters[digits[digit]];
+		character = add_decimal_point(character, digit);
+		sendSPI(character);
 	}
 
 	//end_transfert;
 	DESELECT_SPI_DISPLAY;
+}
+
+uint8_t set_decimal_point(uint8_t position)
+{
+	// "0" is NO decimal point
+	// "1" is MSB (?)
+	if (position < MAX_DIGIT + 1)
+	{
+		decimal_point_position = position;
+	}
+	else
+	{
+		decimal_point_position = 0;
+	}
+
+	return decimal_point_position;
+}
+
+/*
+ * character is the 7 segment Byte 
+ * digit is the position (0 is MSD, 1 the next)
+ *
+ * if current digit correspond to decimal_point_position,
+ * we add decimal point bit to character byte
+ */
+uint8_t add_decimal_point(uint8_t character, uint8_t digit)
+{
+	if ((digit + 1) == decimal_point_position)
+	{
+		character &= 0b01111111;
+	}
+	return character;
 }

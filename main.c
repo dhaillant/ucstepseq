@@ -46,6 +46,10 @@ ISR(INT1_vect )
 
 void rotation_CW(void)
 {
+	#ifdef USE_UART
+		printf("CW ");
+	#endif
+
 	/*
 	 * flag down "step's value changed"
 	 * 
@@ -60,11 +64,42 @@ void rotation_CW(void)
 	 */
 	//update_dac_output(forward_next_step());
 	//increase_rot_increments();
-	init_timer();
+
+	if (in_edition_mode_flag == TRUE)
+	{
+		if (RPUSH_PIN_released)
+		{
+			// increase step pointer
+			edited_step++;
+			if (edited_step > LAST_STEP)
+			{
+				edited_step = LAST_STEP;
+			}
+			
+			semitone_changed = FALSE;
+
+			#ifdef USE_UART
+				printf("edited_step = %d\n", edited_step);
+			#endif
+		}
+		else
+		{
+			// increase step's semitone value
+			semitone_changed = TRUE;
+
+		}
+	}
+	display_step(edited_step);
+	
+	start_edition_mode();
 }
 
 void rotation_CCW(void)
 {
+	#ifdef USE_UART
+		printf("CCW ");
+	#endif
+
 	/*
 	 * flag down "step's value changed"
 	 * 
@@ -77,9 +112,33 @@ void rotation_CCW(void)
 	 * 
 	 * reset edition timer
 	 */
+	if (in_edition_mode_flag == TRUE)
+	{
+		if (RPUSH_PIN_released)
+		{
+			edited_step--;
+			if (edited_step < FIRST_STEP)
+			{
+				edited_step = FIRST_STEP;
+			}
+
+			semitone_changed = FALSE;
+
+			#ifdef USE_UART
+				printf("edited_step = %d\n", edited_step);
+			#endif
+		}
+		else
+		{
+			// decrease step's semitone value
+			semitone_changed = TRUE;
+			
+		}
+	}
+	display_step(edited_step);
 
 	//decrease_rot_increments();
-	init_timer();
+	start_edition_mode();
 }
 
 
@@ -88,8 +147,58 @@ void rotation_CCW(void)
 
 
 
+// TIMER1 overflow interrupt service routine
+// called whenever TCNT1 overflows
+ISR(TIMER1_OVF_vect)
+{
+    // keep a track of number of overflows
+    timer_ovf_counter++;
+  
+    // check for number of overflows here itself
+    if (timer_ovf_counter >= TIMER_MAX_OVF_NUMBER) // NOTE: '>=' used instead of '=='
+    {
+		// we stop the timer
+		stop_timer();
 
-uint8_t step_pin_previous_state = LOW;
+        // no timer reset required here as the timer
+        // is reset every time it overflows
+  
+        timer_ovf_counter = 0;   // reset overflow counter
+        
+
+        // DO BUSINESS HERE  V  V  V  V  V  V  V
+
+        end_edition_mode();
+    }
+}
+
+void start_edition_mode(void)
+{
+	init_timer();
+	in_edition_mode_flag = TRUE;
+
+	// show edition mode on decimal point #2 (second digit, far right)
+	set_decimal_point(2);
+
+	display_number(0x01);
+}
+
+void end_edition_mode(void)
+{
+	// we're no more in edition mode
+	in_edition_mode_flag = FALSE;
+	semitone_changed = FALSE;
+
+	// remove edition mode led
+	set_decimal_point(0);
+	display_number(0x00);
+
+	display_step(current_step);
+
+
+}
+
+
 
 
 
@@ -175,18 +284,6 @@ void blink_leds(void)
 
 
 
-// *************************  INPUTS  **********************************
-
-#define STEP_PIN_low	bit_is_clear(PIND, STEP_PIN)
-#define STEP_PIN_high	bit_is_set(PIND, STEP_PIN)
-// pour test, simulation d'une impulsion STEP sur appui du bouton MODE/RESET :
-//#define STEP_PIN_low   bit_is_clear(PIND, RESET_PIN)
-//#define STEP_PIN_high  bit_is_set(PIND, RESET_PIN)
-#define RESET_PIN_low	bit_is_clear(PIND, RESET_PIN)
-#define RESET_PIN_high	bit_is_set(PIND, RESET_PIN)
-
-#define RPUSH_PIN_pushed	bit_is_clear(PIND,	RPUSH_PIN)
-#define RPUSH_PIN_released	bit_is_set(PIND,	RPUSH_PIN)
 
 
 // ************************  outputs  **********************************
@@ -221,7 +318,7 @@ void output_gate(uint8_t gate)
 			SET_GATE_high;
 			if (trig_out == TRUE)
 			{
-				_delay_us(10);
+				_delay_us(TRIGGER_LENGTH);
 				SET_GATE_low;
 			}
 		}
@@ -287,8 +384,14 @@ void update_cv_output(uint8_t semitone)
 
 // ****************************** sequencer ****************************
 
+// go_step activate the step provided, output the corresponding CV and Gate
+// display current step and CV value, if not in edition mode
 uint8_t go_step(uint8_t step)
 {
+	#ifdef USE_UART
+		printf("go_step(%d);\n", step);
+	#endif
+
 	// set current step and update outputs then display accordingly
 
 	if (step > LAST_STEP)
@@ -302,7 +405,10 @@ uint8_t go_step(uint8_t step)
 	//output_cv(semitones_sequence[current_step]);
 
 	// update display
-	display_step(current_step);
+	if (in_edition_mode_flag == FALSE)
+	{
+		display_step(current_step);
+	}
 	
 	return current_step;
 }
@@ -321,6 +427,7 @@ uint8_t forward_next_step(void)
 void stop_sequencer(void)
 {
 	go_step(0);
+	display_number(0x00);
 }
 
 
@@ -364,13 +471,17 @@ void setup(void)
     INOUT_DDR &= ~(1 << STEP_PIN);	// INPUT
 
 	// activate pull up resistor
+	PORTD |= (1 << RPUSH_PIN);
+
 	//PORTD |= (1 << STEP_PIN);		// use pull up if step is active on ground switch (foot pedal...)
 	//PORTD |= (1 << RESET_PIN);
 
 
-	display_number(0x12);
+	stop_sequencer();
 
+	display_number(0xBB);
 	blink_leds();
+	//display_number(0x12);
 
 	// init gates
 /*	for (uint8_t i = 0; i < MAX_STEPS; i++)
@@ -381,11 +492,11 @@ void setup(void)
 	
 
 	
-	trig_out = TRUE;
+	//trig_out = TRUE;
 
 	// switch off leds
-	update_spi_leds(0);
-	update_spi_leds(0);
+	//update_spi_leds(0);
+	//update_spi_leds(0);
 
 	stop_sequencer();
 
@@ -543,6 +654,7 @@ int main(void)
 		display_gates();
 		//output_gate(current_step);
 		//output_cv(current_step);
+		//display_step(4);
 	#endif
 
 
@@ -553,10 +665,10 @@ int main(void)
 		manage_inputs();
 
 		// manage user inputs
-		//manage_user_inputs();
+		manage_user_inputs();
 		
 		// update, if necessary, display
-		//manage_display();
+		manage_display();
 	}
 }
 
@@ -568,21 +680,22 @@ void manage_inputs(void)
 		// go to step 0 and update outputs, then display accordingly
 		stop_sequencer();
 	}
-
-
-	// detect gate's rising *edges*
-	if ((STEP_PIN_high) && (step_pin_previous_state == LOW))
+	else
 	{
-		forward_next_step();
+		// detect gate's rising *edges*
+		if ((STEP_PIN_high) && (step_pin_previous_state == LOW))
+		{
+			forward_next_step();
 
-		// keep it for next iteration: only detect rising edges
-		step_pin_previous_state = HIGH;
-	}
+			// keep it for next iteration: only detect rising edges
+			step_pin_previous_state = HIGH;
+		}
 
-	// and ignore gate's falling *edges*
-	if ((STEP_PIN_low) && (step_pin_previous_state == HIGH))
-	{
-		step_pin_previous_state = LOW;
+		// and ignore gate's falling *edges*
+		if ((STEP_PIN_low) && (step_pin_previous_state == HIGH))
+		{
+			step_pin_previous_state = LOW;
+		}
 	}
 }
 
@@ -592,7 +705,45 @@ void manage_user_inputs(void)
 	// is button pushed ?
 	if (RPUSH_PIN_pushed)
 	{
-		init_timer();
+		display_step(edited_step);
+
+		start_edition_mode();
+		_delay_ms(1);
+
+		
+		// only triggered when pushed, not maintained nor released
+		if (rpush_previous_state != PUSHED)
+		{
+			rpush_previous_state = PUSHED;
+
+			if (semitone_changed == FALSE)
+			{
+				
+			}
+			else
+			{
+			}
+		}
+		
+	}
+	else
+	{
+		// if button is released (was pushed before) and the knob was not turned to change cv output, then
+		if ((rpush_previous_state == PUSHED) && (semitone_changed == FALSE))
+		{
+			// change gate status for edited step
+			if (gate_sequence[edited_step] == HIGH)
+			{
+				gate_sequence[edited_step] = LOW;
+			}
+			else
+			{
+				gate_sequence[edited_step] = HIGH;
+			}
+			display_gates();
+		}
+		
+		rpush_previous_state = RELEASED;
 	}
 	
 }
@@ -614,5 +765,11 @@ void manage_display(void)
 }
 */
 
-
+void manage_display(void)
+{
+	/*if (in_edition_mode_flag == TRUE)
+	{
+		set_decimal_point(1);
+	}*/
+}
 

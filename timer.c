@@ -42,7 +42,6 @@ void init_timer(void)
   
     // initialize overflow counter variable
     timer_ovf_counter = 0;
-	in_edition_mode_flag = TRUE;
 
 	// TEST
 	//SET_GATE_high;
@@ -58,7 +57,8 @@ void stop_timer(void)
 	//SET_GATE_low;
 	//PORTD |= (1 << PD5);
 }
-  
+
+/* 
 // TIMER1 overflow interrupt service routine
 // called whenever TCNT1 overflows
 ISR(TIMER1_OVF_vect)
@@ -83,4 +83,4 @@ ISR(TIMER1_OVF_vect)
         timer_ovf_counter = 0;   // reset overflow counter
     }
 }
-
+*/

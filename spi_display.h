@@ -83,4 +83,8 @@ void display_number(uint16_t numberToDisplay);
 void setup_spi_display(void);
 //int shift_data(uint8_t data);
 
+uint8_t set_decimal_point(uint8_t position);
+uint8_t add_decimal_point(uint8_t character, uint8_t digit);
+
+
 #endif
